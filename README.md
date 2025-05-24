@@ -1,4 +1,4 @@
-# FastAuth 🔐
+# FastAPI Roles Auth 🔐
 
 A comprehensive FastAPI package for role-based access control (RBAC) with support for multiple authentication providers and databases.
 
@@ -22,25 +22,25 @@ A comprehensive FastAPI package for role-based access control (RBAC) with suppor
 
 ### Basic Installation
 ```bash
-pip install fastauth
+pip install fastapi-roles-auth
 ```
 
 ### Database-Specific Installation
 ```bash
 # PostgreSQL
-pip install fastauth[postgres]
+pip install fastapi-roles-auth[postgres]
 
 # MySQL
-pip install fastauth[mysql]
+pip install fastapi-roles-auth[mysql]
 
 # Oracle
-pip install fastauth[oracle]
+pip install fastapi-roles-auth[oracle]
 
 # All databases
-pip install fastauth[all-databases]
+pip install fastapi-roles-auth[all-databases]
 
 # Development
-pip install fastauth[dev]
+pip install fastapi-roles-auth[dev]
 ```
 
 ## 🚀 Quick Start
@@ -857,4 +857,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ for the FastAPI community**
 
-*FastAuth - Secure, Flexible, Production-Ready Authentication for FastAPI*
+*FastAPI Roles Auth - Secure, Flexible, Production-Ready Authentication for FastAPI*

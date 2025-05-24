@@ -1,6 +1,6 @@
 # User Management System
 
-FastAPI Roles now includes a comprehensive user management system with ready-to-use authentication endpoints. This eliminates the need for developers to implement their own login, registration, and user management endpoints.
+FastAPI Roles Auth now includes a comprehensive user management system with ready-to-use authentication endpoints. This eliminates the need for developers to implement their own login, registration, and user management endpoints.
 
 ## Features
 
