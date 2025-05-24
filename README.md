@@ -1,23 +1,24 @@
-# FastAPI Roles
+# FastAuth
 
-A comprehensive FastAPI package for role-based access control with support for multiple authentication providers and databases.
+A comprehensive FastAPI package for role-based access control (RBAC) with support for multiple authentication providers and databases.
 
-## Features
+## 🚀 Features
 
-- **SQLAlchemy 2.0 Support**: Fully migrated to SQLAlchemy 2.0 with modern syntax
-- **Multi-Database Support**: SQLite, PostgreSQL, MySQL, Oracle, and MongoDB support
-- **Role-Based Access Control**: Comprehensive RBAC with users, roles, and permissions
-- **Multiple Auth Providers**: JWT, Auth0, Firebase, and custom token providers
-- **Flexible Architecture**: Easy to integrate and customize
-- **Type Safety**: Full type hints and Pydantic models
-- **Async Support**: Built for modern async FastAPI applications
+- **🔐 Role-Based Access Control**: Complete RBAC system with users, roles, and permissions
+- **🗄️ Multi-Database Support**: SQLite, PostgreSQL, MySQL, Oracle with SQLAlchemy 2.0
+- **🔑 Multiple Auth Providers**: JWT, Auth0, Firebase, and custom token providers
+- **⚡ Modern FastAPI**: Built for async FastAPI applications with full type safety
+- **🎯 Flexible Decorators**: Easy-to-use decorators for route protection
+- **🛡️ Secure by Default**: Built-in password hashing, token validation, and security best practices
+- **📝 Type Safety**: Full type hints and Pydantic models throughout
+- **🔧 Easy Integration**: Simple setup with minimal configuration required
 
-## Installation
+## 📦 Installation
 
 ### Basic Installation
 
 ```bash
-pip install fastapi-roles
+pip install FastAuth
 ```
 
 ### Database-Specific Installation
@@ -25,80 +26,31 @@ pip install fastapi-roles
 Choose the database driver you need:
 
 ```bash
-# SQLite (included with Python)
-pip install fastapi-roles[sqlite]
-
 # PostgreSQL
-pip install fastapi-roles[postgres]
+pip install FastAuth[postgres]
 
 # MySQL
-pip install fastapi-roles[mysql]
+pip install FastAuth[mysql]
 
 # Oracle
-pip install fastapi-roles[oracle]
+pip install FastAuth[oracle]
 
 # MongoDB
-pip install fastapi-roles[mongodb]
+pip install FastAuth[mongodb]
 
 # All databases
-pip install fastapi-roles[all-databases]
+pip install FastAuth[all-databases]
 ```
 
 ### Development Installation
 
 ```bash
-pip install fastapi-roles[dev]
+pip install FastAuth[dev]
 ```
 
-## Quick Start
+## 🚀 Quick Start
 
-### 1. Database Setup
-
-FastAPI Roles now supports multiple databases with automatic configuration:
-
-```python
-from fastauth import create_database_manager
-
-# SQLite (default)
-db_manager = create_database_manager("sqlite:///./app.db")
-
-# PostgreSQL
-db_manager = create_database_manager(
-    "postgresql://user:password@localhost/fastapi_roles"
-)
-
-# MySQL
-db_manager = create_database_manager(
-    "mysql+pymysql://user:password@localhost/fastapi_roles"
-)
-
-# Oracle
-db_manager = create_database_manager(
-    "oracle+cx_oracle://user:password@localhost:1521/?service_name=XE"
-)
-
-# Or use environment variables
-db_manager = create_database_manager()  # Uses DATABASE_URL or DB_* env vars
-```
-
-### 2. Environment Configuration
-
-You can configure the database using environment variables:
-
-```bash
-# Option 1: Full database URL
-export DATABASE_URL="postgresql://user:password@localhost/fastapi_roles"
-
-# Option 2: Individual components
-export DB_TYPE="postgresql"
-export DB_HOST="localhost"
-export DB_PORT="5432"
-export DB_NAME="fastapi_roles"
-export DB_USER="user"
-export DB_PASSWORD="password"
-```
-
-### 3. Basic Application Setup
+### 1. Basic Setup
 
 ```python
 from fastapi import FastAPI, Depends
@@ -109,6 +61,7 @@ from fastauth import (
     create_database_manager,
     require_role,
     require_permission,
+    admin_required,
 )
 
 # Database setup
@@ -120,7 +73,7 @@ def get_db():
 
 # Auth configuration
 config = AuthConfig(
-    secret_key="your-secret-key",
+    secret_key="your-secret-key-change-in-production",
     algorithm="HS256",
     access_token_expire_minutes=30,
 )
@@ -133,15 +86,19 @@ auth_manager = AuthManager(
 
 app = FastAPI()
 
-# Dependencies
+# Create dependencies
 get_current_user = auth_manager.create_active_user_dependency()
+```
 
+### 2. Protected Routes
+
+```python
 @app.get("/protected")
 async def protected_route(current_user: User = Depends(get_current_user)):
     return {"message": f"Hello {current_user.email}!"}
 
 @app.get("/admin-only")
-@require_role("admin")
+@admin_required()
 async def admin_route(current_user: User = Depends(get_current_user)):
     return {"message": "Admin access granted"}
 
@@ -149,128 +106,93 @@ async def admin_route(current_user: User = Depends(get_current_user)):
 @require_permission("read")
 async def read_route(current_user: User = Depends(get_current_user)):
     return {"data": "sensitive information"}
+
+@app.get("/manager-or-admin")
+@require_role(["manager", "admin"])
+async def multi_role_route(current_user: User = Depends(get_current_user)):
+    return {"message": "Manager or admin access"}
 ```
 
-## Database Migration from SQLAlchemy 1.x
-
-If you're upgrading from a previous version, here are the key changes:
-
-### 1. Import Changes
+### 3. Authentication Endpoint
 
 ```python
-# Old (SQLAlchemy 1.x)
-from fastauth import Base
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from fastapi.security import OAuth2PasswordRequestForm
+from datetime import timedelta
 
-# New (SQLAlchemy 2.0)
-from fastauth import create_database_manager, Base
+@app.post("/login")
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db = Depends(get_db)
+):
+    user = await auth_manager.authenticate_user(
+        db, form_data.username, form_data.password
+    )
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    access_token = auth_manager.create_access_token(
+        user=user,
+        expires_delta=timedelta(minutes=config.access_token_expire_minutes)
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "email": user.email,
+            "roles": [role.name for role in user.roles]
+        }
+    }
 ```
 
-### 2. Database Setup Changes
+## 🗄️ Database Configuration
 
+### Environment Variables
+
+Configure your database using environment variables:
+
+```bash
+# Option 1: Full database URL
+export DATABASE_URL="postgresql://user:password@localhost/fastauth"
+
+# Option 2: Individual components
+export DB_TYPE="postgresql"
+export DB_HOST="localhost"
+export DB_PORT="5432"
+export DB_NAME="fastauth"
+export DB_USER="user"
+export DB_PASSWORD="password"
+```
+
+### Supported Databases
+
+#### SQLite (Default)
 ```python
-# Old
-engine = create_engine("sqlite:///./app.db")
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base.metadata.create_all(bind=engine)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-# New
 db_manager = create_database_manager("sqlite:///./app.db")
-db_manager.create_tables()
-
-def get_db():
-    return next(db_manager.get_session())
 ```
 
-### 3. Model Changes
-
-The models now use SQLAlchemy 2.0 syntax with proper type annotations:
-
+#### PostgreSQL
 ```python
-# Old
-class User(Base):
-    __tablename__ = "users"
-    
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    email = Column(String(255), unique=True, index=True, nullable=False)
-
-# New
-class User(Base):
-    __tablename__ = "users"
-    
-    id: Mapped[str] = mapped_column(GUID(), primary_key=True, default=uuid4)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-```
-
-## Database Support
-
-### SQLite
-
-SQLite is the default database and requires no additional dependencies:
-
-```python
-from fastauth import sqlite_url, create_database_manager
-
-db_manager = create_database_manager(sqlite_url("./app.db"))
-```
-
-### PostgreSQL
-
-```python
-from fastauth import postgresql_url, create_database_manager
-
 db_manager = create_database_manager(
-    postgresql_url(
-        host="localhost",
-        port=5432,
-        database="fastapi_roles",
-        username="postgres",
-        password="password"
-    )
+    "postgresql://user:password@localhost/fastauth"
 )
 ```
 
-### MySQL
-
+#### MySQL
 ```python
-from fastauth import mysql_url, create_database_manager
-
 db_manager = create_database_manager(
-    mysql_url(
-        host="localhost",
-        port=3306,
-        database="fastapi_roles",
-        username="root",
-        password="password"
-    )
+    "mysql+pymysql://user:password@localhost/fastauth"
 )
 ```
 
-### Oracle
-
+#### Oracle
 ```python
-from fastauth import oracle_url, create_database_manager
-
 db_manager = create_database_manager(
-    oracle_url(
-        host="localhost",
-        port=1521,
-        service_name="XE",
-        username="fastapi_roles",
-        password="password"
-    )
+    "oracle+cx_oracle://user:password@localhost:1521/?service_name=XE"
 )
 ```
 
-## Authentication Providers
+## 🔑 Authentication Providers
 
 ### JWT Provider (Default)
 
@@ -328,9 +250,9 @@ auth_manager = AuthManager(
 )
 ```
 
-## Role-Based Access Control
+## 🛡️ Role-Based Access Control
 
-### Decorators
+### Using Decorators
 
 ```python
 from fastauth import require_role, require_permission, admin_required
@@ -356,28 +278,32 @@ async def multi_role_endpoint():
     return {"message": "Admin or manager access"}
 ```
 
-### Dependencies
+### Using Dependencies
 
 ```python
-# Role-based dependency
+# Create role-specific dependencies
 require_admin = auth_manager.create_role_dependency("admin")
 require_manager = auth_manager.create_role_dependency(["admin", "manager"])
 
-# Permission-based dependency
+# Create permission-specific dependencies
 require_read = auth_manager.create_permission_dependency("read")
 require_write = auth_manager.create_permission_dependency(["read", "write"])
 
 @app.get("/admin")
 async def admin_endpoint(user: User = Depends(require_admin)):
     return {"message": f"Hello admin {user.email}"}
+
+@app.get("/read-data")
+async def read_endpoint(user: User = Depends(require_read)):
+    return {"data": "sensitive information"}
 ```
 
-### Router-Level Protection
+### Role-Protected Routers
 
 ```python
 from fastauth import RoleRouter
 
-# Create a router that requires admin role
+# Create a router that requires admin role for all routes
 admin_router = RoleRouter(
     auth_manager=auth_manager,
     required_roles=["admin"],
@@ -396,27 +322,73 @@ async def list_users():
 app.include_router(admin_router)
 ```
 
-## Database Information
+## 👥 User Management
 
-You can get information about your database configuration:
+### Creating Users
 
 ```python
-db_info = db_manager.get_database_info()
-print(f"Database type: {db_info['database_type']}")
-print(f"Dialect: {db_info['dialect']}")
-print(f"Driver: {db_info['driver']}")
+from fastauth import UserCreate
+
+@app.post("/register")
+@require_permission("users:write")
+async def create_user(
+    user_data: UserCreate,
+    db = Depends(get_db)
+):
+    # Get JWT provider for password hashing
+    jwt_provider = auth_manager.get_provider("jwt")
+    
+    new_user = User(
+        email=user_data.email,
+        username=user_data.username,
+        hashed_password=jwt_provider.get_password_hash(user_data.password),
+        first_name=user_data.first_name,
+        last_name=user_data.last_name,
+        is_active=True,
+        is_verified=False
+    )
+    
+    db.add(new_user)
+    db.commit()
+    
+    return {"message": "User created successfully"}
 ```
 
-## Advanced Configuration
+### Managing Roles and Permissions
 
-### Custom Database Types
+```python
+from fastauth import Role, Permission
 
-The package uses custom database types that work across all supported databases:
+# Create roles and permissions
+@app.post("/admin/roles")
+@admin_required()
+async def create_role(role_data: dict, db = Depends(get_db)):
+    role = Role(
+        name=role_data["name"],
+        description=role_data["description"]
+    )
+    db.add(role)
+    db.commit()
+    return {"message": "Role created"}
 
-- `GUID()`: UUID type that works on all databases
-- `JSON()`: JSON type with fallback to TEXT for unsupported databases
+# Assign roles to users
+@app.post("/admin/users/{user_id}/roles/{role_id}")
+@admin_required()
+async def assign_role(user_id: str, role_id: str, db = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    role = db.query(Role).filter(Role.id == role_id).first()
+    
+    if user and role:
+        user.roles.append(role)
+        db.commit()
+        return {"message": "Role assigned"}
+    
+    raise HTTPException(status_code=404, detail="User or role not found")
+```
 
-### Connection Pooling
+## 🔧 Advanced Configuration
+
+### Custom Database Configuration
 
 ```python
 from fastauth import DatabaseConfig, DatabaseManager
@@ -434,19 +406,51 @@ db_manager = DatabaseManager(config)
 db_manager.initialize()
 ```
 
-## Examples
+### Middleware Setup
 
-Check out the `examples/` directory for complete working examples:
+```python
+from fastauth import setup_role_middleware
 
-- `basic_app.py`: Basic FastAPI application with role-based access control
-- `main.py`: Demo application with multiple database support
+# Automatically inject user information into requests
+setup_role_middleware(app, auth_manager)
+```
 
-## Running the Demo
+### Custom Token Validation
+
+```python
+from fastauth import TokenValidator
+
+# Create custom token validator
+token_validator = TokenValidator(auth_manager)
+
+@app.middleware("http")
+async def custom_auth_middleware(request, call_next):
+    # Custom authentication logic
+    token = request.headers.get("Authorization")
+    if token:
+        user = await token_validator.validate_token(token)
+        request.state.user = user
+    
+    response = await call_next(request)
+    return response
+```
+
+## 📚 Examples
+
+### Complete Working Example
+
+Check out our example applications:
+
+- **[Basic App](examples/basic_app.py)**: Complete FastAPI application with authentication and RBAC
+- **[User Management](examples/user_management_example.py)**: Advanced user management features
+- **[Demo App](main.py)**: Simple demo showing core functionality
+
+### Running the Demo
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-repo/fastapi-roles.git
-cd fastapi-roles
+git clone https://github.com/your-repo/fastauth.git
+cd fastauth
 
 # Install dependencies
 pip install -e .[dev]
@@ -455,49 +459,97 @@ pip install -e .[dev]
 python main.py
 ```
 
-The demo will start a FastAPI server with:
-- SQLite database (easily changeable to other databases)
-- Demo users: `user@demo.com/password` and `admin@demo.com/admin`
-- Protected endpoints demonstrating role and permission-based access
+The demo includes:
+- 🗄️ SQLite database (easily configurable for other databases)
+- 👤 Demo users: `user@demo.com/password` and `admin@demo.com/admin`
+- 🔒 Protected endpoints demonstrating role and permission-based access
+- 📖 Interactive API documentation at `http://localhost:8000/docs`
 
-## API Documentation
+## 🔍 API Reference
 
-When you run the demo, visit `http://localhost:8000/docs` to see the interactive API documentation.
+### Core Classes
 
-## Contributing
+- **`AuthManager`**: Main authentication and authorization manager
+- **`AuthConfig`**: Configuration for authentication settings
+- **`User`**: User model with roles and permissions
+- **`Role`**: Role model with associated permissions
+- **`Permission`**: Permission model for fine-grained access control
+- **`RoleRouter`**: FastAPI router with built-in role protection
+
+### Decorators
+
+- **`@admin_required()`**: Requires admin role
+- **`@require_role(roles)`**: Requires specific role(s)
+- **`@require_permission(permissions)`**: Requires specific permission(s)
+- **`@require_user()`**: Requires authenticated user
+
+### Database Utilities
+
+- **`create_database_manager(url)`**: Create database manager with URL
+- **`DatabaseManager`**: Advanced database configuration and management
+- **`Base`**: SQLAlchemy declarative base for models
+
+## 🧪 Testing
+
+```bash
+# Run tests
+pytest
+
+# Run tests with coverage
+pytest --cov=fastauth --cov-report=html
+
+# Run specific test file
+pytest tests/test_auth.py
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
-4. Add tests
-5. Submit a pull request
+4. Add tests for your changes
+5. Ensure all tests pass (`pytest`)
+6. Commit your changes (`git commit -m 'Add amazing feature'`)
+7. Push to the branch (`git push origin feature/amazing-feature`)
+8. Open a Pull Request
 
-## License
+## 📄 License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Changelog
+## 🆘 Support
 
-### Version 0.1.0
+- 📖 **Documentation**: Check out our [examples](examples/) and [API documentation](http://localhost:8000/docs) when running the demo
+- 🐛 **Bug Reports**: [Open an issue](https://github.com/your-repo/fastauth/issues) on GitHub
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/your-repo/fastauth/discussions) for questions and ideas
+- 📧 **Email**: Contact us at support@fastauth.dev
 
-- **Breaking Changes:**
-  - Migrated to SQLAlchemy 2.0
-  - Updated model syntax with proper type annotations
-  - Changed database setup API
+## 🗺️ Roadmap
 
-- **New Features:**
-  - Multi-database support (SQLite, PostgreSQL, MySQL, Oracle)
-  - Database abstraction layer
-  - Environment-based configuration
-  - Improved type safety
-  - Better error handling
+- [ ] **OAuth2 Providers**: Google, GitHub, Microsoft authentication
+- [ ] **Session Management**: Redis-based session storage
+- [ ] **Rate Limiting**: Built-in rate limiting for authentication endpoints
+- [ ] **Audit Logging**: Comprehensive audit trail for security events
+- [ ] **Multi-tenancy**: Support for multi-tenant applications
+- [ ] **GraphQL Support**: GraphQL integration for role-based queries
 
-- **Improvements:**
-  - Modern SQLAlchemy 2.0 syntax
-  - Better performance with connection pooling
-  - Cross-database compatibility
-  - Enhanced documentation
+## 📈 Changelog
 
-## Support
+### Version 0.1.0 (Current)
 
-For questions and support, please open an issue on GitHub.
+**🎉 Initial Release**
+
+- ✅ Complete RBAC system with users, roles, and permissions
+- ✅ Multi-database support (SQLite, PostgreSQL, MySQL, Oracle)
+- ✅ JWT, Auth0, and Firebase authentication providers
+- ✅ FastAPI decorators and dependencies for route protection
+- ✅ Role-protected routers
+- ✅ SQLAlchemy 2.0 support with modern async patterns
+- ✅ Comprehensive type safety with Pydantic models
+- ✅ Example applications and documentation
+
+---
+
+**Made with ❤️ for the FastAPI community**
