@@ -1,0 +1,57 @@
+name: Test Setup
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/**'
+      - 'pyproject.toml'
+      - 'ruff.toml'
+
+jobs:
+  test-setup:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+    
+    - name: Set up Python
+      run: uv python install 3.12
+    
+    - name: Test uv sync
+      run: uv sync --dev
+    
+    - name: Test ruff installation
+      run: |
+        uv add --dev ruff
+        uv run ruff --version
+    
+    - name: Test basic linting
+      run: |
+        uv run ruff check fastauth --no-fix || true
+        uv run ruff format --check fastauth || true
+    
+    - name: Test mypy installation
+      run: |
+        uv run mypy --version
+    
+    - name: Test build
+      run: uv build
+    
+    - name: List build artifacts
+      run: ls -la dist/
+    
+    - name: Verify package metadata
+      run: |
+        uv run python -c "
+        import tomllib
+        with open('pyproject.toml', 'rb') as f:
+            data = tomllib.load(f)
+        print(f'Package: {data[\"project\"][\"name\"]}')
+        print(f'Version: {data[\"project\"][\"version\"]}')
+        print(f'Dependencies: {len(data[\"project\"][\"dependencies\"])}')
+        "

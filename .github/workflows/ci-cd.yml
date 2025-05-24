@@ -1,0 +1,210 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      run: uv python install ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+        uv add --dev pytest pytest-asyncio pytest-cov ruff
+    
+    - name: Lint and format with Ruff
+      run: |
+        uv run ruff check fastauth
+        uv run ruff format --check fastauth
+    
+    - name: Type checking with mypy
+      run: uv run mypy fastauth
+    
+    - name: Test with pytest
+      run: |
+        uv run pytest tests/ --cov=fastauth --cov-report=xml --cov-report=term-missing
+      continue-on-error: true
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+    
+    - name: Set up Python
+      run: uv python install ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: uv sync --dev
+    
+    - name: Run safety check
+      run: |
+        uv add --dev safety
+        uv run safety check
+      continue-on-error: true
+    
+    - name: Run bandit security linter
+      run: |
+        uv add --dev bandit
+        uv run bandit -r fastauth
+      continue-on-error: true
+
+  build:
+    needs: [test, security]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+    
+    - name: Set up Python
+      run: uv python install ${{ env.PYTHON_VERSION }}
+    
+    - name: Install build dependencies
+      run: uv sync --group dev
+    
+    - name: Build package
+      run: uv build
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist
+        path: dist/
+
+  publish-test:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    environment: test-pypi
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: dist
+        path: dist/
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+    
+    - name: Set up Python
+      run: uv python install ${{ env.PYTHON_VERSION }}
+    
+    - name: Install twine
+      run: uv add twine
+    
+    - name: Publish to Test PyPI
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
+      run: uv run twine upload dist/*
+
+  publish-prod:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+    environment: production
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: dist
+        path: dist/
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+    
+    - name: Set up Python
+      run: uv python install ${{ env.PYTHON_VERSION }}
+    
+    - name: Install twine
+      run: uv add twine
+    
+    - name: Publish to PyPI
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: uv run twine upload dist/*
+
+  docker:
+    needs: [test, security]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-roles-auth
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
