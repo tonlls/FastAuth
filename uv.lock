@@ -482,7 +482,7 @@ wheels = [
 ]
 
 [[package]]
-name = "fastapi-roles"
+name = "fastauth"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

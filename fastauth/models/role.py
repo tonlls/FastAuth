@@ -41,8 +41,8 @@ class Role(Base):
     # Relationships
     users: Mapped[List["User"]] = relationship("User", secondary=UserRoleAssociation.__table__, back_populates="roles")
     permissions: Mapped[List["Permission"]] = relationship("Permission", secondary=RolePermissionAssociation.__table__, back_populates="roles")
-    parent: Mapped[Optional["Role"]] = relationship("Role", remote_side=[id])
-    children: Mapped[List["Role"]] = relationship("Role")
+    parent: Mapped[Optional["Role"]] = relationship("Role", remote_side=[id], back_populates="children")
+    children: Mapped[List["Role"]] = relationship("Role", back_populates="parent", overlaps="parent")
     
     def __repr__(self) -> str:
         return f"<Role(id={self.id}, name={self.name})>"
