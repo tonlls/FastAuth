@@ -1,45 +1,61 @@
 [project]
-name = "FastAuth"
-version = "0.1.0"
+name = "fastapi-roles-auth"
+version = "0.1.2"
 description = "A comprehensive FastAPI package for role-based access control with support for multiple auth providers"
 readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Ton Llucia", email = "tonlls1999@gmail.com"}
+]
+keywords = ["fastapi", "authentication", "authorization", "rbac", "roles", "permissions"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.104.0",
-    "pydantic[email]>=2.0.0",
-    "python-jose[cryptography]>=3.3.0",
+    "fastapi>=0.115.12",
+    "python-jose[cryptography]>=3.4.0",
     "passlib[bcrypt]>=1.7.4",
-    "python-multipart>=0.0.6",
-    "httpx>=0.25.0",
-    "sqlalchemy>=2.0.0",
-    "alembic>=1.12.0",
+    "sqlalchemy>=2.0.41",
+    "httpx>=0.28.1",
+    "pydantic[email]>=2.11.5",
+    "python-multipart>=0.0.20",
 ]
 
 [project.optional-dependencies]
 auth0 = ["auth0-python>=4.9.0"]
-firebase = ["firebase-admin>=6.0.0"]
-redis = ["redis>=5.0.0"]
+firebase = ["firebase-admin>=6.8.0"]
+redis = ["redis>=6.1.0"]
 sqlite = []  # SQLite is included with Python
-postgres = ["psycopg2-binary>=2.9.0"]
-mysql = ["pymysql>=1.1.0"]
+postgres = ["psycopg2-binary>=2.9.10"]
+mysql = ["pymysql>=1.1.1"]
 oracle = ["cx-oracle>=8.3.0"]
-mongodb = ["motor>=3.3.0", "pymongo>=4.6.0"]
+mongodb = ["motor>=3.7.1", "pymongo>=4.13.0"]
 all-databases = [
-    "psycopg2-binary>=2.9.0",
-    "pymysql>=1.1.0", 
+    "psycopg2-binary>=2.9.10",
+    "pymysql>=1.1.1", 
     "cx-oracle>=8.3.0",
-    "motor>=3.3.0",
-    "pymongo>=4.6.0"
+    "motor>=3.7.1",
+    "pymongo>=4.13.0"
 ]
 dev = [
-    "pytest>=7.4.0",
-    "pytest-asyncio>=0.21.0",
-    "pytest-cov>=4.1.0",
-    "black>=23.0.0",
-    "isort>=5.12.0",
-    "flake8>=6.0.0",
-    "mypy>=1.5.0",
-    "pre-commit>=3.4.0",
+    "pytest>=8.3.5",
+    "pytest-asyncio>=0.26.0",
+    "pytest-cov>=6.1.1",
+    "black>=25.1.0",
+    "isort>=6.0.1",
+    "flake8>=7.2.0",
+    "mypy>=1.15.0",
+    "pre-commit>=4.2.0",
 ]
 
 [build-system]
@@ -103,5 +119,7 @@ addopts = "--cov=fastauth --cov-report=term-missing"
 
 [dependency-groups]
 dev = [
+    "build>=1.2.2.post1",
+    "twine>=6.1.0",
     "uvicorn>=0.34.2",
 ]
